@@ -1,132 +1,171 @@
 # Local Mac Transcriber
 
-Local pipeline to:
+Pipeline locale per sbobinature universitarie e generazione di note Markdown da registrazioni audio.
 
-1. automatically split a lecture recording into 30-minute chunks;
-2. transcribe each chunk with Whisper;
-3. generate final Markdown notes with an Ollama model.
+1. divide la registrazione in segmenti audio con `ffmpeg`;
+2. trascrive ciascun segmento con Whisper (locale, nessun cloud);
+3. genera una sbobina Markdown fedele alla trascrizione con un modello Ollama locale.
 
-This project takes the notebook idea and turns it into a more professional workflow, configurable through `.env`, prompt templates in `config.yaml`, and reusable from the terminal.
+Tutto è configurabile da `.env` e `config.yaml` senza toccare il codice.
 
-## Requirements
+## Requisiti
 
 - Python 3.12+
-- `ffmpeg` installed and available in `PATH`
-- Ollama installed and running locally if you want to generate Markdown files
+- `ffmpeg` installato e disponibile nel PATH
+- Ollama installato e avviato localmente per la generazione delle sbobine
 
-On macOS you can install `ffmpeg` with:
+Su macOS:
 
 ```bash
 brew install ffmpeg
 ```
 
-## Setup
-
-1. Create `.env` from `.env.example`
-2. Install dependencies:
+Installa Ollama da [https://ollama.com](https://ollama.com), poi scarica un modello **senza thinking mode**:
 
 ```bash
-uv sync
+ollama pull llama3.1:latest   # consigliato: veloce, stabile, nessun thinking
 ```
 
-3. Put audio files in `input/` or configure `AUDIO_FILE` in `.env`
+> ⚠️ **Evita modelli "thinking"** come `qwen3.5`, `deepseek-r1` o simili: generano
+> migliaia di token di ragionamento interno prima di rispondere, rendendo la pipeline
+> inutilmente lenta per questo task.
 
-## `.env` configuration
+## Setup
 
-Main options:
+```bash
+cp .env.example .env    # configura il tuo ambiente
+uv sync                 # installa le dipendenze
+```
 
-- `INPUT_DIR`: directory to read audio files from
-- `OUTPUT_DIR`: directory where chunks, transcripts, and notes are written
-- `CONFIG_PATH`: YAML file containing the system and user prompt templates
-- `PROMPT_PROFILE`: prompt profile name to load from `config.yaml`
-- `AUDIO_FILE`: optional path to a single file to process
-- `CHUNK_MINUTES=30`: duration of each segment
-- `WHISPER_MODEL`: Whisper model to use, for example `large-v3`
-- `WHISPER_LANGUAGE=it`: transcription language
-- `OLLAMA_ENABLED=true`: enable or disable Markdown generation
-- `OLLAMA_MODEL`: Ollama model used to create notes
-- `KEEP_CHUNKS=true`: keep intermediate split audio files
-- `OVERWRITE=false`: avoid regenerating outputs that already exist
+Metti i file audio in `input/` oppure imposta `AUDIO_FILE` nel `.env`.
+
+## `.env`
+
+| variabile | default | descrizione |
+|---|---|---|
+| `INPUT_DIR` | `input` | cartella dei file audio |
+| `OUTPUT_DIR` | `output` | cartella degli output |
+| `CONFIG_PATH` | `config.yaml` | file con i profili prompt |
+| `PROMPT_PROFILE` | _(dal config)_ | profilo prompt da usare |
+| `AUDIO_FILE` | — | percorso di un singolo file audio |
+| `CHUNK_MINUTES` | `30` | durata di ogni segmento audio |
+| `WHISPER_MODEL` | `large-v3` | modello Whisper |
+| `WHISPER_LANGUAGE` | `it` | lingua della trascrizione |
+| `OLLAMA_ENABLED` | `true` | abilita/disabilita la generazione Markdown |
+| `OLLAMA_MODEL` | `llama3.1:latest` | modello Ollama (usa uno senza thinking) |
+| `OLLAMA_TEMPERATURE` | `0.1` | temperatura del modello |
+| `OLLAMA_TIMEOUT_SECONDS` | `1800` | timeout per chiamata Ollama |
+| `KEEP_CHUNKS` | `true` | conserva i segmenti audio intermedi |
+| `OVERWRITE` | `false` | rigenera gli output già esistenti |
 
 ## `config.yaml`
 
-Prompt customization lives in `config.yaml` under named profiles:
+I prompt vivono in `config.yaml` sotto profili nominati. Struttura:
 
-- `default_profile`
-- `profiles.<name>.processing.ollama_max_input_chars`
-- `profiles.<name>.prompts.system`
-- `profiles.<name>.prompts.chunk_user`
-- `profiles.<name>.prompts.final_user`
+```yaml
+default_profile: gastro_it
 
-Available placeholders:
+profiles:
+  gastro_it:
+    processing:
+      ollama_max_input_chars: 4500       # max caratteri per segmento inviato a Ollama
+      ollama_num_predict: 2048           # max token in output per segmento
+      ollama_final_max_input_chars: 24000 # sopra questa soglia il passo finale concatena direttamente
+    prompts:
+      system: |
+        ...
+      chunk_user: |
+        ...  # placeholder: {lesson_title} {chunk_index} {total_chunks} {transcript}
+      final_user: |
+        ...  # placeholder: {lesson_title} {notes}
+```
 
-- chunk prompt: `{lesson_title}`, `{chunk_index}`, `{total_chunks}`, `{transcript}`
-- final prompt: `{lesson_title}`, `{notes}`
+**Profili inclusi:**
 
-The default config included in this project ships with multiple profiles, including a gastroenterology-focused Italian profile. You can switch profile with `PROMPT_PROFILE` or `--prompt-profile`.
+| profilo | lingua | uso consigliato |
+|---|---|---|
+| `gastro_it` | italiano | lezioni di gastroenterologia/medicina, 4° anno |
+| `general_it` | italiano | qualsiasi lezione universitaria in italiano |
+| `medical_en` | inglese | lezioni medico-scientifiche in inglese |
 
-If Ollama is slow on long transcripts, lower `profiles.<name>.processing.ollama_max_input_chars` to force additional sub-splitting of each transcript file before generation. For example, `4500` is much lighter than `6000`.
+### Parametri `processing`
 
-## Usage
+| parametro | default | effetto |
+|---|---|---|
+| `ollama_max_input_chars` | `6000` | spezza i `.txt` in sottosegmenti prima di inviarli; abbassare se Ollama è lento |
+| `ollama_num_predict` | `2048` | limita l'output per segmento; evita loop o output esplosivi |
+| `ollama_final_max_input_chars` | `24000` | se le note totali superano questo valore, il passo finale concatena direttamente senza LLM |
 
-Process all files in `INPUT_DIR`:
+## Utilizzo
+
+Pipeline completa su tutti i file in `INPUT_DIR`:
 
 ```bash
 uv run python main.py
 ```
 
-Process all files using a specific prompt profile:
+Un solo file audio:
 
 ```bash
-uv run python main.py --prompt-profile gastro_it
+uv run python main.py --file "/path/to/lezione.m4a"
 ```
 
-Process one file:
-
-```bash
-uv run python main.py --file "/path/to/lecture.m4a"
-```
-
-Transcription only, without Markdown notes:
+Solo trascrizione, senza generare Markdown:
 
 ```bash
 uv run python main.py --skip-notes
 ```
 
-Force regeneration of all outputs:
+Forza la rigenerazione di tutto:
 
 ```bash
 uv run python main.py --force
 ```
 
-Generate notes from existing transcript `.txt` files only, without running Whisper/ffmpeg:
+### Comando `notes` — genera sbobine da trascrizioni già esistenti
+
+Utile per testare i prompt senza rilanciare Whisper:
 
 ```bash
 uv run python main.py notes --transcripts-dir output/lez-gastro-16-04/transcripts
 ```
 
-Generate notes from existing transcripts with a different prompt profile:
+Con profilo specifico:
 
 ```bash
-uv run python main.py notes --transcripts-dir output/lez-gastro-16-04/transcripts --prompt-profile medical_en
+uv run python main.py notes \
+  --transcripts-dir output/lez-gastro-16-04/transcripts \
+  --prompt-profile gastro_it
 ```
 
-If a transcript file is still too heavy for Ollama, reduce `ollama_max_input_chars` in the selected profile and rerun with `--force` to regenerate the intermediate note files.
+Con profilo diverso al volo:
 
-## Generated output
+```bash
+uv run python main.py notes \
+  --transcripts-dir output/lez-gastro-16-04/transcripts \
+  --prompt-profile medical_en \
+  --force
+```
 
-For each lesson, a directory is created inside `output/` with this structure:
+## Output generato
 
-- `chunks/`: 30-minute audio segments
-- `transcripts/`: per-chunk transcripts
-- `transcript.txt`: aggregated full transcript
-- `notes/`: intermediate chunk-by-chunk Ollama notes
-- `lesson.md`: final lesson Markdown
-- `metadata.json`: processing metadata
+Per ogni lezione viene creata una cartella in `output/` con questa struttura:
 
-## Practical notes
+```
+output/<slug>/
+├── chunks/           segmenti audio .mp3
+├── transcripts/      trascrizioni per segmento (.txt)
+├── transcript.txt    trascrizione completa aggregata
+├── notes/            sbobine intermedie per sottosegmento (.md)
+├── lesson.md         sbobina finale completa
+└── metadata.json     metadati del processing
+```
 
-- If Ollama is not running, the pipeline only fails during the Markdown generation step.
-- Transcripts are reused if they already exist and `OVERWRITE=false`.
+## Note operative
+
+- Ollama è necessario solo per la fase di generazione Markdown; la trascrizione Whisper funziona senza.
+- Le trascrizioni esistenti vengono riutilizzate se `OVERWRITE=false`.
+- Se un segmento è ancora troppo pesante per Ollama, riduci `ollama_max_input_chars` nel profilo e rilancia con `--force`.
+- Il passo finale di unificazione bypassa automaticamente Ollama se il materiale supera `ollama_final_max_input_chars`, concatenando le sbobine parziali direttamente.
 - Prompt behavior can be changed by editing `config.yaml` instead of modifying `main.py`.
 - The `notes` command is the fastest way to test only the Ollama prompt/output stage starting from existing transcript files.
