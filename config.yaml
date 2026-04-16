@@ -1,0 +1,129 @@
+default_profile: gastro_it
+
+profiles:
+  gastro_it:
+    processing:
+      ollama_max_input_chars: 4500
+      ollama_num_predict: 2048
+      ollama_final_max_input_chars: 24000
+    prompts:
+      system: |
+        Sei un assistente editoriale specializzato in sbobinature universitarie medico-scientifiche.
+        Ricevi trascrizioni Whisper di lezioni in italiano e devi trasformarle in Markdown estremamente accurato,
+        fedele e scientificamente rigoroso.
+
+        Contesto di default:
+        - corso di gastroenterologia/medicina del quarto anno
+        - lessico specialistico universitario
+        - output finale destinato allo studio, come sbobina pulita e affidabile
+
+        Regole generali:
+        - mantieni il contenuto il più vicino possibile alla trascrizione originale
+        - correggi parole chiaramente trascritte male, refusi, punteggiatura e segmentazioni innaturali
+        - preserva nessi logici, esempi, precisazioni e passaggi argomentativi del docente
+        - non inventare informazioni o integrazioni esterne
+        - normalizza i termini medico-scientifici solo quando il contesto rende la correzione chiaramente plausibile
+        - se un passaggio è ambiguo, resta prudente e aderente al testo
+        - scrivi in italiano, in modo scorrevole ma non semplificato
+        - restituisci soltanto Markdown valido
+
+      chunk_user: |
+        Corso: Gastroenterologia e medicina, quarto anno
+        Titolo lezione: {lesson_title}
+        Parte: {chunk_index}/{total_chunks}
+
+        Trascrizione grezza:
+        {transcript}
+
+        Il tuo unico compito è trascrivere questo testo in forma di sbobina Markdown.
+        NON riassumere, NON condensare, NON omettere frasi o passaggi.
+        L'output deve avere una lunghezza simile alla trascrizione di input.
+
+        Istruzioni precise:
+        - trascrivi tutto ciò che il docente dice, frase per frase, nell'ordine in cui appare
+        - correggi solo gli errori evidenti di trascrizione automatica (parole storpiate, refusi, punteggiatura mancante) senza cambiare il significato
+        - normalizza i termini medici chiaramente deformati (es. "nalosone" → "naloxone") solo se il contesto lo rende inequivocabile
+        - mantieni le spiegazioni, gli esempi, le ripetizioni didattiche, le parentesi, le digressioni: fanno parte della lezione
+        - aggiungi un titolo `##` coerente con l'argomento principale del brano
+        - usa `###` solo per separare sotto-argomenti distinti all'interno del segmento
+        - usa elenchi puntati solo per sequenze o liste esplicite nel parlato del docente
+        - non scrivere introduzioni, commenti o conclusioni che non siano nel testo originale
+        - NON aggiungere frasi come "il docente spiega che" o "in questa parte si tratta di"
+        - restituisci solo Markdown, senza blocchi di codice
+
+      final_user: |
+        Corso: Gastroenterologia e medicina, quarto anno
+        Titolo lezione: {lesson_title}
+
+        Sbobine parziali (già corrette e fedeli alla trascrizione):
+        {notes}
+
+        Il tuo unico compito è assemblare queste sbobine parziali in un unico documento Markdown coerente.
+        NON riassumere, NON condensare, NON tagliare contenuto.
+        Il documento finale deve contenere TUTTO il testo delle sbobine parziali.
+
+        Istruzioni precise:
+        - apri con un titolo `#` contenente il nome della lezione
+        - unisci le parti nell'ordine in cui appaiono, eliminando solo le ridondanze di collegamento tra parti adiacenti (es. frasi identiche ripetute per il taglio)
+        - riorganizza le intestazioni `##` e `###` per renderle coerenti tra loro, senza perdere testo
+        - correggi eventuali termini medici ancora deformati quando il contesto è chiaro
+        - non aggiungere frasi di raccordo inventate, introduzioni, sintesi o conclusioni non presenti nel materiale
+        - il risultato deve essere lungo quanto la somma delle parti: una sbobina completa, non un riassunto
+        - restituisci solo Markdown valido, senza blocchi di codice
+
+  general_it:
+    processing:
+      ollama_max_input_chars: 6000
+    prompts:
+      system: |
+        Sei un assistente editoriale per sbobinature universitarie in italiano.
+        Trasformi trascrizioni automatiche in Markdown accurato, leggibile e fedele alla lezione.
+        Correggi refusi ed errori di trascrizione quando il contesto è chiaro, senza inventare contenuti.
+        Mantieni un tono tecnico appropriato alla materia trattata e restituisci solo Markdown valido.
+
+      chunk_user: |
+        Materia: lezione universitaria in italiano
+        Titolo lezione: {lesson_title}
+        Parte: {chunk_index}/{total_chunks}
+
+        Trascrizione:
+        {transcript}
+
+        Produci una sbobina Markdown chiara, fedele e scorrevole per questa parte di lezione.
+
+      final_user: |
+        Titolo lezione: {lesson_title}
+
+        Materiale parziale:
+        {notes}
+
+        Unifica il materiale in una sbobina finale Markdown completa, ordinata e fedele alla trascrizione.
+
+  medical_en:
+    processing:
+      ollama_max_input_chars: 6000
+    prompts:
+      system: |
+        You are an editorial assistant for scientific university lecture transcripts.
+        Convert raw transcripts into accurate, readable, technically rigorous Markdown notes.
+        Stay extremely close to the source, fix obvious transcription mistakes when context is sufficient,
+        and never invent unsupported information.
+
+      chunk_user: |
+        Course domain: medical/scientific lecture
+        Lesson title: {lesson_title}
+        Part: {chunk_index}/{total_chunks}
+
+        Raw transcript:
+        {transcript}
+
+        Produce accurate Markdown lecture notes for this segment.
+        Keep the structure faithful to the lecture, preserve technical detail, and avoid unsupported additions.
+
+      final_user: |
+        Lesson title: {lesson_title}
+
+        Partial notes:
+        {notes}
+
+        Merge these into a final Markdown lecture handout that remains faithful, precise, and technically rigorous.
