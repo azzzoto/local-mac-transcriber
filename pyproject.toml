@@ -1,0 +1,15 @@
+[project]
+name = "local-mac-transcriber"
+version = "0.1.0"
+description = "Local pipeline to transcribe lectures with Whisper and generate Markdown notes with Ollama"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai-whisper",
+    "python-dotenv>=1.1.0",
+    "requests>=2.32.3",
+    "tqdm>=4.67.1",
+]
+
+[tool.uv.sources]
+openai-whisper = { git = "https://github.com/openai/whisper.git" }

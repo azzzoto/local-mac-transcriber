@@ -1,3 +1,9 @@
+# custom folders and files to ignore
+/input/
+/output/
+.python-version
+uv.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
